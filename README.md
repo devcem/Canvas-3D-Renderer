@@ -78,7 +78,7 @@ I found these informations from that gist : https://gist.github.com/xem/99930986
 We are done with this position and rotation calculations. You can find them in index.html file, these calculations are used in calculatePoint and calculateRotation functions. I'll optimize them later. Currently i'm done with 3D perspective and geometry.
 
 Here is result from geometry and 3D perspective calculations :
-!(http://imagets.com/shared/canvas-renderer/screen01.jpg)
+![Screen01](http://imagets.com/shared/canvas-renderer/screen01.jpg)
 
 Also here is link from current state :
 http://imagets.com/shared/canvas-renderer/level01.html
