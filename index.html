@@ -1,0 +1,174 @@
+<canvas id="canvas" width="512" height="512"></canvas>
+<div style="float: right;" class="form">
+	<h3>Model</h3>
+	<p>
+		<label>Scale</label>
+		<input type="range" id="modelScale" step="0.1" value="100" min="0" max="200">
+	</p>
+	<p>
+		<label>Rotation X</label>
+		<input type="range" id="rotationX" step="0.1" value="0" min="-3.14" max="3.14">
+	</p>
+	<p>
+		<label>Rotation Y</label>
+		<input type="range" id="rotationY" step="0.1" value="0" min="-3.14" max="3.14">
+	</p>
+	<p>
+		<label>Rotation Z</label>
+		<input type="range" id="rotationZ" step="0.1" value="0" min="-3.14" max="3.14">
+	</p>
+	<hr>
+	<h3>Camera</h3>
+	<p>
+		<label>Camera X</label>
+		<input type="range" id="cameraX" value="0" step="0.001" min="-10" max="10">
+	</p>
+	<p>
+		<label>Camera Y</label>
+		<input type="range" id="cameraY" value="0" step="0.001" min="-10" max="10">
+	</p>
+	<p>
+		<label>Camera Z</label>
+		<input type="range" id="cameraZ" value="0" step="0.001" min="-10" max="10">
+	</p>
+</div>
+<script type="text/javascript">
+	var raytrace = {
+		canvas  : null,
+		context : null,
+		width   : 0,
+		height  : 0,
+		selectedModel : 0,
+		nodes   : [
+			{
+				name     : 'box',
+				rotation : [0,0,0],
+				scale    : 100,
+				points   : [
+					[-1,-1,-1],
+					[1,-1,-1],
+					[1,1,-1],
+					[-1,1,-1],
+					[1,1,1],
+					[-1,1,1],
+					[-1,-1,1],
+					[1,-1,1]
+				]
+			}
+		],
+		camera  : {
+			position : { x : 0, y : 30, z : 0 },
+			rotation : { x : 0, y : 0, z : 0 },
+			fov : 5, 
+			viewer_distance : 5
+		},
+		timestamp : 0,
+		init : function(){
+			this.canvas  = document.getElementById('canvas');
+			this.context = this.canvas.getContext('2d');
+
+			this.width   = this.canvas.width;
+			this.height  = this.canvas.height;
+
+			this.render();
+		},
+		render : function(){
+			this.context.clearRect(0, 0, this.width, this.height);
+			this.timestamp++;
+
+			this.getForm();
+			this.update();
+			window.requestAnimationFrame(raytrace.render.bind(this));
+		},
+		getForm : function(){
+			//Model
+			this.nodes[this.selectedModel].scale = parseFloat(document.getElementById('modelScale').value);
+
+			this.nodes[this.selectedModel].rotation[0] = parseFloat(document.getElementById('rotationX').value);
+			this.nodes[this.selectedModel].rotation[1] = parseFloat(document.getElementById('rotationY').value);
+			this.nodes[this.selectedModel].rotation[2] = parseFloat(document.getElementById('rotationZ').value);
+
+			//Camera
+			this.camera.position.x = parseFloat(document.getElementById('cameraX').value);
+			this.camera.position.y = parseFloat(document.getElementById('cameraY').value);
+			this.camera.position.z = parseFloat(document.getElementById('cameraZ').value);
+		},
+		calculateRotation : function(point, nodeElement, index){
+			var cosT = Math.cos(nodeElement.rotation[index]);
+			var sinT = Math.sin(nodeElement.rotation[index]);
+
+			if(index == 0){
+				var worldPoint = [0,0,0];
+				worldPoint[2] = point[2] * cosT - point[0] * sinT;
+				worldPoint[0] = point[2] * sinT + point[0] * cosT;
+				worldPoint[1] = point[1];
+			}
+
+			if(index == 1){
+				var worldPoint = [0,0,0];
+				worldPoint[1] = point[1] * cosT - point[2] * sinT;
+				worldPoint[2] = point[1] * sinT + point[2] * cosT;
+				worldPoint[0] = point[0];
+			}
+
+			if(index == 2){
+				var worldPoint = [0,0,0];
+				worldPoint[0] = point[0] * cosT - point[1] * sinT;
+				worldPoint[1] = point[0] * sinT + point[1] * cosT;
+				worldPoint[2] = point[2];
+			}
+
+			return worldPoint;
+		},
+		calculatePoint : function(point, nodeElement, index){
+			point = raytrace.calculateRotation(point, nodeElement, 0);
+			point = raytrace.calculateRotation(point, nodeElement, 1);
+			point = raytrace.calculateRotation(point, nodeElement, 2);
+
+			if(index == 'x'){
+				return (raytrace.camera.position.x + point[0]) * nodeElement.scale * raytrace.camera.fov / (point[2] + raytrace.camera.position.z + raytrace.camera.viewer_distance) + raytrace.width/2;
+			}else if(index == 'y'){
+				return (raytrace.camera.position.y -point[1]) * nodeElement.scale * raytrace.camera.fov / (point[2] + raytrace.camera.position.z + raytrace.camera.viewer_distance) + raytrace.height/2;
+			}
+		},
+		update : function(){
+			//Camera perspective
+			/*
+			this.camera.position.x = 30 + Math.cos(raytrace.timestamp / 10) * 10;
+			this.camera.position.y = 30 + Math.sin(raytrace.timestamp / 10) * 10;
+			*/
+
+			for(node in this.nodes){
+				var nodeElement = this.nodes[node];
+
+				for(point in nodeElement.points){
+					var point = nodeElement.points[point];
+					var x = raytrace.calculatePoint(point, nodeElement, 'x');
+					var y = raytrace.calculatePoint(point, nodeElement, 'y');
+
+					//Draw all combinations with lines
+					for(farPoint in nodeElement.points){
+						var farPoint = nodeElement.points[farPoint];
+						var farX = raytrace.calculatePoint(farPoint, nodeElement, 'x');
+						var farY = raytrace.calculatePoint(farPoint, nodeElement, 'y');
+
+						this.context.beginPath();
+						this.context.moveTo(x, y);
+						this.context.lineTo(farX, farY);
+						this.context.stroke();
+					}
+
+					this.context.fillRect(
+						x, 
+						y, 
+						5, 5
+					);
+				}
+			}
+		}
+	};
+
+	window.onload = function(){
+		raytrace.init();
+	}
+</script>
